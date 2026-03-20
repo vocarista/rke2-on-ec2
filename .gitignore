@@ -1,0 +1,4 @@
+keys/
+*.pem
+rke2.yaml
+*.log

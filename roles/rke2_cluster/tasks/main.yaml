@@ -1,0 +1,126 @@
+---
+# This role deploys an RKE2 server or agent.
+
+- name: Generate a random token for the cluster
+  set_fact:
+    rke2_token: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+  run_once: true
+  delegate_to: localhost
+  become: no
+  when: inventory_hostname in groups['rke2_servers']
+
+- name: Create RKE2 config directory
+  file:
+    path: /etc/rancher/rke2
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# === SERVER-SPECIFIC TASKS ===
+
+- name: Configure RKE2 server
+  when: "'rke2_servers' in group_names"
+  block:
+    - name: Generate a random token for the cluster 2
+      shell: "openssl rand -hex 16"
+      register: rke2_token_raw
+      delegate_to: localhost
+      become: no
+      run_once: true
+
+    - name: Set cluster token as a fact
+      set_fact:
+        rke2_token: "{{ rke2_token_raw.stdout }}"
+        cacheable: yes
+
+    - name: Create server config.yaml
+      template:
+        src: templates/server_config.yaml.j2
+        dest: /etc/rancher/rke2/config.yaml
+        owner: root
+        group: root
+        mode: '0644'
+
+- name: Install RKE2 server
+  when: "'rke2_servers' in group_names"
+  shell: "curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE=server sh -"
+  args:
+    creates: /usr/local/bin/rke2
+
+- name: Enable and start rke2-server service
+  when: "'rke2_servers' in group_names"
+  systemd:
+    name: rke2-server
+    enabled: yes
+    state: started
+
+- name: Wait for server node to be ready
+  when: "'rke2_servers' in group_names"
+  shell: "/var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml wait --for=condition=Ready node/{{ ansible_hostname }} --timeout=300s"
+  register: node_ready
+  until: node_ready.rc == 0
+  retries: 5
+  delay: 30
+
+- name: Create a symlink for kubectl
+  when: "'rke2_servers' in group_names"
+  file:
+    src: /var/lib/rancher/rke2/bin/kubectl
+    dest: /usr/local/bin/kubectl
+    owner: root
+    group: root
+    mode: '0755'
+    state: link
+
+- name: Create .kube directory for ubuntu user
+  when: "'rke2_servers' in group_names"
+  file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0700'
+
+- name: Copy kubeconfig for ubuntu user
+  when: "'rke2_servers' in group_names"
+  copy:
+    src: /etc/rancher/rke2/rke2.yaml
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    remote_src: yes
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0600'
+
+- name: Fetch kubeconfig file from server
+  when: "'rke2_servers' in group_names"
+  fetch:
+    src: /etc/rancher/rke2/rke2.yaml
+    dest: "{{ playbook_dir }}/rke2.yaml"
+    flat: yes
+
+# === AGENT-SPECIFIC TASKS ===
+
+- name: Configure RKE2 agent
+  when: "'rke2_agents' in group_names"
+  template:
+    src: templates/agent_config.yaml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install RKE2 agent
+  when: "'rke2_agents' in group_names"
+  shell: "curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE=agent sh -"
+  args:
+    creates: /usr/local/bin/rke2
+
+- name: Enable and start rke2-agent service
+  when: "'rke2_agents' in group_names"
+  systemd:
+    name: rke2-agent
+    enabled: yes
+    state: started
+
+

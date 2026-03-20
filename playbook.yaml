@@ -1,0 +1,12 @@
+---
+- name: Deploy RKE2 Server
+  hosts: rke2_servers
+  become: yes
+  roles:
+    - role: rke2_cluster
+
+- name: Deploy RKE2 Agents
+  hosts: rke2_agents
+  become: yes
+  roles:
+    - role: rke2_cluster

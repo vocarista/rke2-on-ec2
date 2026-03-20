@@ -1,0 +1,9 @@
+# RKE2 Server Configuration
+# This node will listen on its private IP.
+# The public IP is added to the SAN for external kubectl access.
+token: "{{ hostvars[groups['rke2_servers'][0]]['rke2_token'] }}"
+write-kubeconfig-mode: "0644"
+tls-san:
+  - "{{ ansible_default_ipv4.address }}"
+  - "{{ ansible_host }}"
+node-ip: "{{ ansible_default_ipv4.address }}"
