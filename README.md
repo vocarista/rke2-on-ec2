@@ -1,6 +1,6 @@
 # RKE2 on EC2 - Ansible Deployment
 
-Automated deployment of RKE2 (Rancher Kubernetes Engine 2) Kubernetes cluster on AWS EC2 instances.
+Automated deployment of RKE2 (Rancher Kubernetes Engine 2) Kubernetes cluster on AWS EC2 instances. Pushing for my own reference.
 
 ## Overview
 
@@ -172,14 +172,6 @@ kubectl get pods --all-namespaces
 - **2379-2380**: etcd (server only)
 - **10250**: Kubelet API
 - **30000-32767**: NodePort services
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
 
 ## License
 
